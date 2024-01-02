@@ -1,0 +1,113 @@
+На macos
+
+установить homebrew
+установить postgres
+установить docker
+запустить терминал, проверить версию psql:
+> psql --version
+
+запустить docker, создать контейнер postgres с параметрами:
+    POSTGRES_USER : admin (имя пользователя которое сразу создастся)
+    POSTGRES_PASSWORD : admin (его пароль)
+    POSTGRES_DB : admin (база создастся под этим пользователем)
+    POSTGRES_DB_AUTH_METHOD : trust (отключить проверку паролей)
+запустить созданный контейнер из docker
+подключиться к контейнеру postgres из терминала:
+> psql -U admin -h 0.0.0.0 -p 5432
+admin=#
+
+в среде БД ввести SQL запросы для создания нового пользователя с именем postgres:
+admin=# CREATE ROLE postgres WITH LOGIN CREATEDB PASSWORD 'postgres'; (одинарные кавычки)
+сменить имя пользователя, не отключаясь от БД (\c database_name role_name):
+admin=# \c admin postgres
+
+уже от имени пользователя postgres создать БД dvdrental и затем отключиться от БД:
+admin=> CREATE DATABASE dvdrental;
+admin=> exit
+
+подключиться к контейнеру postgres к БД dvdrental из терминала от имени пользователя postgres:
+> psql dvdrental -U postgres -h 0.0.0.0 -p 5432
+dvdrental=>
+проверка подключения:
+dvdrental=>\c
+You are now connected to database "dvdrental" as user "postgres".
+проверка списка таблиц в новой пустой базе
+dvdrental=> \dt
+Did not find any relations.
+выход в терминал:
+dvdrental=> exit
+>
+
+скачать пример БД dvdrental.tar
+"http://www.postgresqltutorial.com/wp-content/uploads/2019/05/dvdrental.zip"
+переименовать его расширение в .tar
+и разместить его в папке, которая указана в переменной PATH
+в терминале выполнить команду:
+> pg_restore -U postgres -h 0.0.0.0 -p 5432 -d dvdrental dvdrental.tar
+>
+
+подключиться к контейнеру postgres к БД dvdrental из терминала от имени пользователя postgres:
+> psql dvdrental -U postgres -h 0.0.0.0 -p 5432
+dvdrental=>
+
+проверка списка таблиц в восстановленной базе
+dvdrental=> \dt
+             List of relations
+ Schema |     Name      | Type  |  Owner
+--------+---------------+-------+----------
+ public | actor         | table | postgres
+ public | address       | table | postgres
+ public | category      | table | postgres
+ public | city          | table | postgres
+ public | country       | table | postgres
+ public | customer      | table | postgres
+ public | film          | table | postgres
+ public | film_actor    | table | postgres
+ public | film_category | table | postgres
+ public | inventory     | table | postgres
+ public | language      | table | postgres
+ public | payment       | table | postgres
+ public | rental        | table | postgres
+ public | staff         | table | postgres
+ public | store         | table | postgres
+(15 rows)
+
+таким образом подготовлен пример БД для отработки команд SQL
+
+проверка некоторых свойств БД. например \d film выводит список полей таблицы film, с перечнем индексов
+dvdrental=> \d film
+
+dvdrental=> \d film
+                                              Table "public.film"
+      Column      |            Type             | Collation | Nullable |                Default
+------------------+-----------------------------+-----------+----------+---------------------------------------
+ film_id          | integer                     |           | not null | nextval('film_film_id_seq'::regclass)
+ title            | character varying(255)      |           | not null |
+ description      | text                        |           |          |
+ release_year     | year                        |           |          |
+ language_id      | smallint                    |           | not null |
+ rental_duration  | smallint                    |           | not null | 3
+ rental_rate      | numeric(4,2)                |           | not null | 4.99
+ length           | smallint                    |           |          |
+ replacement_cost | numeric(5,2)                |           | not null | 19.99
+ rating           | mpaa_rating                 |           |          | 'G'::mpaa_rating
+ last_update      | timestamp without time zone |           | not null | now()
+ special_features | text[]                      |           |          |
+ fulltext         | tsvector                    |           | not null |
+Indexes:
+    "film_pkey" PRIMARY KEY, btree (film_id)
+    "film_fulltext_idx" gist (fulltext)
+    "idx_fk_language_id" btree (language_id)
+    "idx_title" btree (title)
+    "index_length" btree (length)
+Foreign-key constraints:
+    "film_language_id_fkey" FOREIGN KEY (language_id) REFERENCES language(language_id) ON UPDATE CASCADE ON DELETE RESTRICT
+Referenced by:
+    TABLE "film_actor" CONSTRAINT "film_actor_film_id_fkey" FOREIGN KEY (film_id) REFERENCES film(film_id) ON UPDATE CASCADE ON DELETE RESTRICT
+    TABLE "film_category" CONSTRAINT "film_category_film_id_fkey" FOREIGN KEY (film_id) REFERENCES film(film_id) ON UPDATE CASCADE ON DELETE RESTRICT
+    TABLE "inventory" CONSTRAINT "inventory_film_id_fkey" FOREIGN KEY (film_id) REFERENCES film(film_id) ON UPDATE CASCADE ON DELETE RESTRICT
+Triggers:
+    film_fulltext_trigger BEFORE INSERT OR UPDATE ON film FOR EACH ROW EXECUTE FUNCTION tsvector_update_trigger('fulltext', 'pg_catalog.english', 'title', 'description')
+    last_updated BEFORE UPDATE ON film FOR EACH ROW EXECUTE FUNCTION last_updated()
+
+после работы с БД отключить контейнер docker
